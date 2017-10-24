@@ -1,9 +1,10 @@
 *.swp
 *.swo
 *.pyc
+__pycache__
 config.json
 dist
 build
-imgurpython.egg-info
+aioimgur.egg-info
 runner.py
 examples/auth.ini

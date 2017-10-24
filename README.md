@@ -1,46 +1,44 @@
-# The imgurpython project is no longer supported.
+aioimgur
+========
 
-imgurpython
-===========
-
-A Python client for the [Imgur API](http://api.imgur.com/). It can be used to
+A Python client for the [Imgur API](https://apidocs.imgur.com/). It can be used to
 interact with the Imgur API in your projects.
 
-You must [register](http://api.imgur.com/oauth2/addclient) your client with the Imgur API, and provide the Client-ID to
-make *any* request to the API (see the [Authentication](https://api.imgur.com/#authentication) note). If you want to
+You must [register](https://api.imgur.com/oauth2/addclient) your client with the Imgur API, and provide the Client-ID to
+make *any* request to the API (see the [Authentication](https://apidocs.imgur.com/#authorization-and-oauth) note). If you want to
 perform actions on accounts, the user will have to authorize your application through OAuth2.
 
 Requirements
 ------------
 
-- Python >= 2.7
-- [requests](http://docs.python-requests.org/en/latest/user/install/)
+- Python >= 3.5
+- [aiohttp](http://aiohttp.readthedocs.io/en/stable/)
 
 Imgur API Documentation
 -----------------------
 
-Our developer documentation can be found [here](https://api.imgur.com/).
+Imgur's developer documentation can be found [here](https://apidocs.imgur.com/).
 
 Community
 ---------
 
-The best way to reach out to Imgur for API support is emailing us at api@imgur.com.
+The best way to reach out to Imgur for API support is emailing them at api@imgur.com.
 
 Installation
 ------------
 
-    pip install imgurpython
+    pip install aioimgur
 
 Library Usage
 ------------
 
-Using imgurpython in your application takes just a couple quick steps.
+Using aioimgur in your application takes just a couple quick steps.
 
 To use the client from a strictly anonymous context (no actions on behalf of a user)
 
 ```python
 
-from imgurpython import ImgurClient
+from aioimgur import ImgurClient
 
 client_id = 'YOUR CLIENT ID'
 client_secret = 'YOUR CLIENT SECRET'
@@ -57,7 +55,7 @@ for item in items:
 To initialize a client that takes actions on behalf of a user
 
 ```python
-from imgurpython import ImgurClient
+from aioimgur import ImgurClient
 
 client_id = 'YOUR CLIENT ID'
 client_secret = 'YOUR CLIENT SECRET'
@@ -76,7 +74,7 @@ client.set_user_auth(credentials['access_token'], credentials['refresh_token'])
 or if you already have an access/refresh token pair you can simply do
 
 ```python
-from imgurpython import ImgurClient
+from aioimgur import ImgurClient
 
 # If you already have an access/refresh pair in hand
 client_id = 'YOUR CLIENT ID'
@@ -93,7 +91,7 @@ Error types
 * ImgurClientError - General error handler, access message and status code via
 
 ```python
-from imgurpython.helpers.error import ImgurClientError
+from aioimgur.helpers.error import ImgurClientError
 
 try
     ...

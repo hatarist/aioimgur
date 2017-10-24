@@ -1,5 +1,6 @@
 import base64
-import requests
+import asyncio
+import aiohttp
 from .imgur.models.tag import Tag
 from .imgur.models.album import Album
 from .imgur.models.image import Image
@@ -37,7 +38,7 @@ class AuthWrapper(object):
     def get_current_access_token(self):
         return self.current_access_token
 
-    def refresh(self):
+    async def refresh(self):
         data = {
             'refresh_token': self.refresh_token,
             'client_id': self.client_id,
@@ -47,12 +48,14 @@ class AuthWrapper(object):
 
         url = API_URL + 'oauth2/token'
 
-        response = requests.post(url, data=data)
+        async with aiohttp.ClientSession() as session:
+            response = await session.post(url, data=data)
 
-        if response.status_code != 200:
-            raise ImgurClientError('Error refreshing access token!', response.status_code)
+            if response.status != 200:
+                raise ImgurClientError('Error refreshing access token!', response.status)
 
-        response_data = response.json()
+            response_data = await response.json()
+
         self.current_access_token = response_data['access_token']
 
 
@@ -106,6 +109,7 @@ class ImgurClient(object):
 
     def prepare_headers(self, force_anon=False):
         headers = {}
+        headers['Accept-Encoding'] = 'identity'
         if force_anon or self.auth is None:
             if self.client_id is None:
                 raise ImgurClientError('Client credentials not found!')
@@ -119,48 +123,53 @@ class ImgurClient(object):
 
         return headers
 
-
-    def make_request(self, method, route, data=None, force_anon=False):
+    async def _make_request(self, method, route, data=None, force_anon=False):
         method = method.lower()
-        method_to_call = getattr(requests, method)
 
         header = self.prepare_headers(force_anon)
         url = (MASHAPE_URL if self.mashape_key is not None else API_URL) + ('3/%s' % route if 'oauth2' not in route else route)
 
-        if method in ('delete', 'get'):
-            response = method_to_call(url, headers=header, params=data, data=data)
-        else:
-            response = method_to_call(url, headers=header, data=data)
-
-        if response.status_code == 403 and self.auth is not None:
-            self.auth.refresh()
-            header = self.prepare_headers()
+        async with aiohttp.ClientSession() as session:
+            method_to_call = getattr(session, method)
             if method in ('delete', 'get'):
-                response = method_to_call(url, headers=header, params=data, data=data)
+                response = await method_to_call(url, headers=header, params=data, data=data)
             else:
-                response = method_to_call(url, headers=header, data=data)
+                response = await method_to_call(url, headers=header, data=data)
 
-        self.credits = {
-            'UserLimit': response.headers.get('X-RateLimit-UserLimit'),
-            'UserRemaining': response.headers.get('X-RateLimit-UserRemaining'),
-            'UserReset': response.headers.get('X-RateLimit-UserReset'),
-            'ClientLimit': response.headers.get('X-RateLimit-ClientLimit'),
-            'ClientRemaining': response.headers.get('X-RateLimit-ClientRemaining')
-        }
+            if response.status == 403 and self.auth is not None:
+                await self.auth.refresh()
+                header = self.prepare_headers()
+                if method in ('delete', 'get'):
+                    response = await method_to_call(url, headers=header, params=data, data=data)
+                else:
+                    response = await method_to_call(url, headers=header, data=data)
 
-        # Rate-limit check
-        if response.status_code == 429:
-            raise ImgurClientRateLimitError()
+            self.credits = {
+                'UserLimit': response.headers.get('X-RateLimit-UserLimit'),
+                'UserRemaining': response.headers.get('X-RateLimit-UserRemaining'),
+                'UserReset': response.headers.get('X-RateLimit-UserReset'),
+                'ClientLimit': response.headers.get('X-RateLimit-ClientLimit'),
+                'ClientRemaining': response.headers.get('X-RateLimit-ClientRemaining')
+            }
 
-        try:
-            response_data = response.json()
-        except:
-            raise ImgurClientError('JSON decoding of response failed.')
+            # Rate-limit check
+            if response.status == 429:
+                raise ImgurClientRateLimitError()
+
+            try:
+                response_data = await response.json()
+            except:
+                raise ImgurClientError('JSON decoding of response failed.')
 
         if 'data' in response_data and isinstance(response_data['data'], dict) and 'error' in response_data['data']:
-            raise ImgurClientError(response_data['data']['error'], response.status_code)
+            raise ImgurClientError(response_data['data']['error'], response.status)
 
         return response_data['data'] if 'data' in response_data else response_data
+
+    def make_request(self, method, route, data=None, force_anon=False):
+        loop = asyncio.get_event_loop()
+        return loop.run_until_complete(self._make_request(method, route, data, force_anon))
+
 
     def validate_user_context(self, username):
         if username == 'me' and self.auth is None:
@@ -594,7 +603,7 @@ class ImgurClient(object):
             'type': 'base64',
         }
         data.update({meta: config[meta] for meta in set(self.allowed_image_fields).intersection(config.keys())})
-        
+
         return self.make_request('POST', 'upload', data, anon)
 
     def upload_from_url(self, url, config=None, anon=True):
