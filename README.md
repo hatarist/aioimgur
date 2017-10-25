@@ -46,7 +46,7 @@ client_secret = 'YOUR CLIENT SECRET'
 client = ImgurClient(client_id, client_secret)
 
 # Example request
-items = client.gallery()
+items = await client.gallery()
 for item in items:
     print(item.link)
 
@@ -67,7 +67,7 @@ authorization_url = client.get_auth_url('pin')
 
 # ... redirect user to `authorization_url`, obtain pin (or code or token) ...
 
-credentials = client.authorize('PIN OBTAINED FROM AUTHORIZATION', 'pin')
+credentials = await client.authorize('PIN OBTAINED FROM AUTHORIZATION', 'pin')
 client.set_user_auth(credentials['access_token'], credentials['refresh_token'])
 ```
 
