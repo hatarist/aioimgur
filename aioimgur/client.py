@@ -588,16 +588,34 @@ class ImgurClient(object):
         with open(path, 'rb') as fd:
             self.upload(fd, config, anon)
 
-    async def upload(self, fd, config=None, anon=True):
+    async def upload(self, obj, config=None, anon=True, content_type='image', encode_base64=False):
+        """
+        obj is either bytes or an (async) file-like object
+        """
         if not config:
             config = dict()
+        
+        if isinstance(obj, bytes):
+            contents = obj
+        elif asyncio.iscoroutinefunction(obj.read):
+            contents = await obj.read()
+        else:
+            contents = obj.read()
 
-        contents = fd.read()
-        b64 = base64.b64encode(contents)
+        if content_type not in ('image', 'video'):
+            # https://apidocs.imgur.com/#c85c9dfc-7487-4de2-9ecd-66f727cf3139
+            raise ValueError("Incorrect content_type. Choose `image` or `video`")
+
         data = {
-            'image': b64,
-            'type': 'base64',
+            content_type: contents,
         }
+
+        if encode_base64:
+            b64 = base64.b64encode(contents).decode()
+            data = {
+                'image': b64,
+                'type': 'base64',
+            }
         data.update({meta: config[meta] for meta in set(self.allowed_image_fields).intersection(config.keys())})
 
         return await self.make_request('POST', 'upload', data, anon)
